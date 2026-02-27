@@ -106,13 +106,28 @@ export function classifyMoves(engineMoves, chess) {
 
       const topMove = bestMoves[0];
 
+      const avgEval = bestMoves.slice(0, 3).reduce((s, m) => s + m.engineScore, 0) / Math.min(3, bestMoves.length);
+
+      // How close is this strategy's best move to the overall best move?
+      // 0 = same as best, higher = worse
+      const evalGap = Math.abs(bestEval - topMove.engineScore);
+
+      // Combined score: position relevance * strategy fit * eval quality * human playability
+      // evalQuality: 1.0 if best move, decreasing as gap grows
+      const evalQuality = Math.max(0.1, 1.0 - evalGap * 0.3);
+      const combinedScore = strategy.relevance
+        * (topMove.strategyScore || 1)
+        * evalQuality
+        * (topMove.humanScore || 0.5);
+
       return {
         strategy,
         topMove,
         allMoves: bestMoves.slice(0, 3),
-        avgEval: bestMoves.slice(0, 3).reduce((s, m) => s + m.engineScore, 0) / Math.min(3, bestMoves.length),
+        avgEval,
         relevance: strategy.relevance,
-        combinedScore: strategy.relevance * (topMove.strategyScore || 1) * (topMove.humanScore || 0.5),
+        evalQuality,
+        combinedScore,
       };
     })
     .filter(Boolean)
@@ -135,15 +150,29 @@ export function detectThreats(chess) {
   // Get all legal moves
   const moves = chess.moves({ verbose: true });
 
-  // 1. Checks available
-  const checks = moves.filter(m => m.san.includes('+'));
+  // 1. Checkmate available? (check first - highest priority)
+  const checkmates = moves.filter(m => m.san.includes('#'));
+  if (checkmates.length > 0) {
+    threats.push({
+      type: 'opportunity',
+      title: 'CHECKMATE AVAILABLE!',
+      detail: checkmates[0].san,
+      squares: [checkmates[0].from, checkmates[0].to],
+      severity: 'critical',
+      move: checkmates[0],
+    });
+  }
+
+  // 2. Checks available
+  const checks = moves.filter(m => m.san.includes('+') && !m.san.includes('#'));
   if (checks.length > 0) {
     threats.push({
       type: 'opportunity',
       title: `Check available!`,
       detail: checks.map(m => m.san).join(', '),
-      squares: checks.map(m => m.to),
+      squares: [checks[0].from, checks[0].to],
       severity: 'high',
+      move: checks[0],
     });
   }
 
@@ -173,6 +202,7 @@ export function detectThreats(chess) {
           detail: `Capture ${pieceName(best.captured)} with ${pieceName(best.piece)}`,
           squares: [best.from, best.to],
           severity: 'high',
+          move: best,
         });
       } else if (gain === risk && gain >= 3) {
         threats.push({
@@ -181,6 +211,7 @@ export function detectThreats(chess) {
           detail: `Even exchange of ${pieceName(best.piece)}s`,
           squares: [best.from, best.to],
           severity: 'low',
+          move: best,
         });
       }
     }
@@ -198,31 +229,29 @@ export function detectThreats(chess) {
       type: 'opportunity',
       title: 'Hanging piece!',
       detail: `${pieceName(freeCaptures[0].captured)} on ${freeCaptures[0].to} is undefended`,
-      squares: [freeCaptures[0].to],
+      squares: [freeCaptures[0].from, freeCaptures[0].to],
       severity: 'critical',
+      move: freeCaptures[0],
     });
   }
 
-  // 4. Checkmate available?
-  const checkmates = moves.filter(m => m.san.includes('#'));
-  if (checkmates.length > 0) {
-    threats.push({
-      type: 'opportunity',
-      title: 'CHECKMATE AVAILABLE!',
-      detail: checkmates[0].san,
-      squares: [checkmates[0].to],
-      severity: 'critical',
-    });
-  }
-
-  // 5. Are we in check?
+  // 4. Are we in check?
   if (chess.isCheck()) {
+    // Find best escape (prefer captures, then blocks, then king moves)
+    const escapes = [...moves].sort((a, b) => {
+      if (a.captured && !b.captured) return -1;
+      if (!a.captured && b.captured) return 1;
+      if (a.piece !== 'k' && b.piece === 'k') return -1;
+      if (a.piece === 'k' && b.piece !== 'k') return 1;
+      return 0;
+    });
     threats.push({
       type: 'danger',
       title: 'You are in check!',
-      detail: `${moves.length} way(s) to escape`,
-      squares: [],
+      detail: `${moves.length} way(s) to escape — best: ${escapes[0]?.san}`,
+      squares: escapes[0] ? [escapes[0].from, escapes[0].to] : [],
       severity: 'high',
+      move: escapes[0] || null,
     });
   }
 

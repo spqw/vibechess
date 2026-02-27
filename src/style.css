@@ -221,6 +221,27 @@ cg-board {
   font-family: 'Courier New', monospace;
 }
 
+.strategy-card .card-fit {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+.card-fit.fit-great {
+  color: var(--success);
+  background: rgba(46, 213, 115, 0.12);
+}
+.card-fit.fit-good {
+  color: var(--info);
+  background: rgba(112, 161, 255, 0.12);
+}
+.card-fit.fit-ok {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .strategy-card .card-description {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -279,6 +300,24 @@ cg-board {
 .threat-card.threat-warning .threat-title { color: var(--warning); }
 .threat-card.threat-opportunity .threat-title { color: var(--success); }
 .threat-card.threat-info .threat-title { color: var(--info); }
+
+.threat-card.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.threat-card.clickable:hover {
+  border-color: rgba(255,255,255,0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.threat-card .threat-action {
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  color: var(--accent);
+}
 
 /* Move history */
 #move-history {

@@ -164,6 +164,54 @@ async function onStrategySelected(strategyOption) {
   }, 400);
 }
 
+// ============ THREAT SELECTION ============
+async function onThreatSelected(threat) {
+  if (isThinking || toColor() !== playerColor) return;
+  if (!threat.move) return;
+
+  const move = threat.move;
+
+  // Highlight the move
+  ground.set({
+    drawable: {
+      autoShapes: [
+        { orig: move.from, dest: move.to, brush: 'red' },
+      ],
+    },
+  });
+
+  isThinking = true;
+  setTimeout(async () => {
+    const from = move.from;
+    const to = move.to;
+    const result = chess.move({ from, to, promotion: move.promotion || 'q' });
+    if (!result) {
+      console.error('Invalid move from threat:', move);
+      isThinking = false;
+      return;
+    }
+
+    ground.move(from, to);
+    recordMove(result, threat.title);
+    updateBoard();
+    ground.set({
+      drawable: { autoShapes: [] },
+      lastMove: [from, to],
+    });
+    updateMoveHistory();
+    updateTurnIndicator();
+
+    if (chess.isGameOver()) {
+      isThinking = false;
+      handleGameOver();
+      return;
+    }
+
+    await opponentMove();
+    isThinking = false;
+  }, 300);
+}
+
 // ============ OPPONENT (AI) MOVE ============
 async function opponentMove() {
   if (!engineReady) {
@@ -272,7 +320,6 @@ function showStrategiesWithoutEngine() {
   const legalMoves = chess.moves({ verbose: true });
 
   const strategyOptions = strategies
-    .slice(0, 6)
     .map(s => {
       // Score each legal move by strategy fit
       const scored = legalMoves.map(m => ({
@@ -289,9 +336,12 @@ function showStrategiesWithoutEngine() {
         topMove,
         allMoves: scored.slice(0, 3),
         relevance: s.relevance,
+        combinedScore: s.relevance * (topMove.strategyScore || 1),
       };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => b.combinedScore - a.combinedScore)
+    .slice(0, 6);
 
   renderStrategies(strategyOptions);
 
@@ -314,17 +364,27 @@ function renderStrategies(strategyOptions) {
     .map((opt, idx) => {
       const s = opt.strategy;
       const topMove = opt.topMove;
-      const evalStr = topMove.engineScore.toFixed(1);
-      const evalSign = topMove.engineScore > 0 ? '+' : '';
+      const hasEngine = topMove.engineScore !== 0 || engineReady;
+      const evalStr = hasEngine ? topMove.engineScore.toFixed(1) : '';
+      const evalSign = hasEngine && topMove.engineScore > 0 ? '+' : '';
+
+      // Position fit indicator (1-3 dots based on relevance)
+      const fit = opt.relevance >= 0.7 ? 'Great fit'
+        : opt.relevance >= 0.45 ? 'Good fit'
+        : 'Possible';
+      const fitClass = opt.relevance >= 0.7 ? 'fit-great'
+        : opt.relevance >= 0.45 ? 'fit-good'
+        : 'fit-ok';
 
       return `
         <div class="strategy-card" data-type="${s.type}" data-index="${idx}">
           <div class="card-header">
             <span class="card-name">${s.name}</span>
-            <span class="card-eval">${evalSign}${evalStr}</span>
+            <span class="card-fit ${fitClass}">${fit}</span>
+            ${hasEngine ? `<span class="card-eval">${evalSign}${evalStr}</span>` : ''}
           </div>
           <div class="card-description">${s.description}</div>
-          <div class="card-moves">Best: ${topMove.san}${opt.allMoves.length > 1 ? ` (also ${opt.allMoves.slice(1).map(m => m.san).join(', ')})` : ''}</div>
+          <div class="card-moves">Play: ${topMove.san}${opt.allMoves.length > 1 ? ` (also ${opt.allMoves.slice(1).map(m => m.san).join(', ')})` : ''}</div>
           <div class="card-source">${s.source}</div>
         </div>
       `;
@@ -355,20 +415,35 @@ function renderThreats(threats) {
   }
 
   container.innerHTML = threats
-    .map(t => {
+    .map((t, idx) => {
       const typeClass = t.type === 'opportunity' ? 'threat-opportunity'
         : t.type === 'danger' ? 'threat-danger'
         : t.type === 'warning' ? 'threat-warning'
         : 'threat-info';
 
+      const clickable = t.move ? 'clickable' : '';
+      const action = t.move ? `Play ${t.move.san}` : '';
+
       return `
-        <div class="threat-card ${typeClass}">
+        <div class="threat-card ${typeClass} ${clickable}" data-index="${idx}">
           <div class="threat-title">${t.title}</div>
           <div class="threat-detail">${t.detail}</div>
+          ${action ? `<div class="threat-action">${action}</div>` : ''}
         </div>
       `;
     })
     .join('');
+
+  // Attach click handlers for actionable threats
+  container.querySelectorAll('.threat-card.clickable').forEach((card) => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.index);
+      const threat = threats[idx];
+      if (threat.move) {
+        onThreatSelected(threat);
+      }
+    });
+  });
 }
 
 function highlightThreats(threats) {
