@@ -13,20 +13,37 @@ export class Engine {
   }
 
   async init() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this._resolveReady = resolve;
 
-      // Use the single-threaded version to avoid CORS issues
-      this.worker = new Worker('/stockfish-18-single.js');
+      // Timeout after 10 seconds
+      const timeout = setTimeout(() => {
+        console.error('Stockfish init timed out');
+        reject(new Error('Engine init timeout'));
+      }, 10000);
+
+      try {
+        // Use the single-threaded version to avoid CORS issues
+        this.worker = new Worker('/stockfish-18-single.js');
+      } catch (e) {
+        clearTimeout(timeout);
+        reject(e);
+        return;
+      }
 
       this.worker.onmessage = (e) => {
         const line = typeof e.data === 'string' ? e.data : e.data?.data;
         if (!line) return;
+        if (line === 'readyok' && !this.ready) {
+          clearTimeout(timeout);
+        }
         this._onMessage(line);
       };
 
       this.worker.onerror = (e) => {
         console.error('Stockfish worker error:', e);
+        clearTimeout(timeout);
+        reject(new Error('Stockfish worker failed to load'));
       };
 
       // Initialize UCI

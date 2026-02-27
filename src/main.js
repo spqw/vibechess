@@ -129,26 +129,38 @@ async function onStrategySelected(strategyOption) {
   });
 
   // Execute the move after a short delay for visual feedback
+  isThinking = true;
   setTimeout(async () => {
-    const result = chess.move({ from: move.from, to: move.to, promotion: move.promotion || 'q' });
+    const from = move.from;
+    const to = move.to;
+    const result = chess.move({ from, to, promotion: move.promotion || 'q' });
     if (!result) {
       console.error('Invalid move from strategy:', move);
+      isThinking = false;
       return;
     }
+
+    // Animate the piece move on the board
+    ground.move(from, to);
 
     recordMove(result, strategyOption.strategy.name);
     selectedStrategy = null;
     updateBoard();
-    ground.set({ drawable: { autoShapes: [] } });
+    ground.set({
+      drawable: { autoShapes: [] },
+      lastMove: [from, to],
+    });
     updateMoveHistory();
     updateTurnIndicator();
 
     if (chess.isGameOver()) {
+      isThinking = false;
       handleGameOver();
       return;
     }
 
     await opponentMove();
+    isThinking = false;
   }, 400);
 }
 
@@ -255,21 +267,38 @@ async function analyzePosition() {
 
 function showStrategiesWithoutEngine() {
   // Fallback: show strategies based on heuristics only (no engine)
+  // Still pick the best legal move for each strategy using the moveFilter scores
   const strategies = getAvailableStrategies(chess);
-  // Can't rank moves without engine, just show strategy names
-  const container = document.getElementById('strategies-list');
-  container.innerHTML = strategies
+  const legalMoves = chess.moves({ verbose: true });
+
+  const strategyOptions = strategies
     .slice(0, 6)
-    .map(s => `
-      <div class="strategy-card" data-type="${s.type}">
-        <div class="card-header">
-          <span class="card-name">${s.name}</span>
-        </div>
-        <div class="card-description">${s.description}</div>
-        <div class="card-source">${s.source}</div>
-      </div>
-    `)
-    .join('');
+    .map(s => {
+      // Score each legal move by strategy fit
+      const scored = legalMoves.map(m => ({
+        ...m,
+        engineScore: 0,
+        humanScore: 0.5,
+        strategyScore: s.moveFilter(m, chess),
+      }));
+      scored.sort((a, b) => b.strategyScore - a.strategyScore);
+      const topMove = scored[0];
+      if (!topMove) return null;
+      return {
+        strategy: s,
+        topMove,
+        allMoves: scored.slice(0, 3),
+        relevance: s.relevance,
+      };
+    })
+    .filter(Boolean);
+
+  renderStrategies(strategyOptions);
+
+  // Also show threats even without engine
+  const threats = detectThreats(chess);
+  renderThreats(threats);
+  highlightThreats(threats);
 }
 
 // ============ RENDERING ============
