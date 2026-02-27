@@ -279,14 +279,36 @@ export function detectThreats(chess) {
     const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
     const oppCaptures = oppMoves.filter(m => m.captured && pieceValues[m.captured] >= 3);
     if (oppCaptures.length > 0) {
-      const worst = oppCaptures.sort((a, b) => pieceValues[b.captured] - pieceValues[a.captured])[0];
-      threats.push({
-        type: 'warning',
-        title: `Your ${pieceName(worst.captured)} is attacked`,
-        detail: `${pieceName(worst.piece)} on ${worst.from} threatens ${worst.to}`,
-        squares: [worst.to, worst.from],
-        severity: pieceValues[worst.captured] >= 5 ? 'high' : 'medium',
-      });
+      // Group by threatened piece square and find all attackers
+      const threatenedSquares = new Map();
+      for (const cap of oppCaptures) {
+        if (!threatenedSquares.has(cap.to)) {
+          threatenedSquares.set(cap.to, {
+            piece: cap.captured,
+            value: pieceValues[cap.captured],
+            attackers: [],
+          });
+        }
+        threatenedSquares.get(cap.to).attackers.push(cap);
+      }
+
+      // Create a threat for each attacked piece
+      const sortedThreats = [...threatenedSquares.entries()]
+        .sort(([, a], [, b]) => b.value - a.value);
+
+      for (const [square, info] of sortedThreats) {
+        const attackerNames = info.attackers
+          .map(a => `${pieceName(a.piece)} on ${a.from}`)
+          .join(', ');
+        threats.push({
+          type: 'warning',
+          title: `Your ${pieceName(info.piece)} on ${square} is attacked`,
+          detail: `Threatened by ${attackerNames}`,
+          // squares: attacked piece first, then all attacker sources
+          squares: [square, ...info.attackers.map(a => a.from)],
+          severity: info.value >= 5 ? 'high' : 'medium',
+        });
+      }
     }
   } catch (e) {
     // Invalid position from FEN flip - ignore
