@@ -22,6 +22,16 @@ let selectedStrategy = null;
 let moveHistory = [];
 let isThinking = false;
 
+// Difficulty levels: { skillLevel (0-20), depth (search depth for opponent) }
+const DIFFICULTY = {
+  beginner:     { skill: 1,  depth: 3  },
+  casual:       { skill: 5,  depth: 6  },
+  intermediate: { skill: 10, depth: 10 },
+  advanced:     { skill: 15, depth: 14 },
+  master:       { skill: 20, depth: 18 },
+};
+let currentLevel = 'intermediate';
+
 // ============ INIT ============
 async function init() {
   // Initialize board
@@ -49,6 +59,7 @@ async function init() {
   try {
     await engine.init();
     engineReady = true;
+    engine.setSkillLevel(DIFFICULTY[currentLevel].skill);
     updateStatus('Engine ready. Choose a strategy!');
     await analyzePosition();
   } catch (err) {
@@ -59,6 +70,16 @@ async function init() {
 
   // New game button
   document.getElementById('new-game-btn').addEventListener('click', newGame);
+
+  // Difficulty selector
+  const levelSelect = document.getElementById('opponent-level');
+  levelSelect.addEventListener('change', (e) => {
+    currentLevel = e.target.value;
+    if (engineReady) {
+      const diff = DIFFICULTY[currentLevel];
+      engine.setSkillLevel(diff.skill);
+    }
+  });
 }
 
 // ============ BOARD HELPERS ============
@@ -238,8 +259,8 @@ async function opponentMove() {
   setThreatsLoading();
 
   try {
-    // Get AI's best move (plays at a moderate level)
-    const bestUci = await engine.getBestMove(chess.fen(), { depth: 10 });
+    const diff = DIFFICULTY[currentLevel];
+    const bestUci = await engine.getBestMove(chess.fen(), { depth: diff.depth });
     const from = bestUci.slice(0, 2);
     const to = bestUci.slice(2, 4);
     const promotion = bestUci.length > 4 ? bestUci[4] : undefined;

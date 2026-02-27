@@ -67,9 +67,8 @@ export class Engine {
     if (line === 'readyok') {
       if (!this.ready) {
         this.ready = true;
-        // Set some defaults
+        // Set defaults (skill level configured separately via setSkillLevel)
         this._send('setoption name MultiPV value 8');
-        this._send('setoption name Skill Level value 10');
         if (this._resolveReady) {
           this._resolveReady();
           this._resolveReady = null;
@@ -178,6 +177,10 @@ export class Engine {
   async quickEval(fen) {
     const results = await this.analyze(fen, { depth: 10, multiPV: 1 });
     return results[0]?.eval ?? 0;
+  }
+
+  setSkillLevel(level) {
+    this._send(`setoption name Skill Level value ${level}`);
   }
 
   stop() {

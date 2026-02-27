@@ -64,6 +64,38 @@ body {
   flex: 1;
 }
 
+#level-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+#level-selector label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+#opponent-level {
+  background: var(--bg-light);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+#opponent-level:hover,
+#opponent-level:focus {
+  border-color: var(--accent);
+}
+#opponent-level option {
+  background: var(--bg-light);
+  color: var(--text);
+}
+
 #new-game-btn {
   background: var(--accent);
   color: white;
