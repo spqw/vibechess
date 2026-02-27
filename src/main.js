@@ -10,6 +10,7 @@ import { Chess } from 'chess.js';
 import { Engine } from './engine.js';
 import { classifyMoves, detectThreats } from './classifier.js';
 import { getAvailableStrategies } from './strategies.js';
+import { generateHeatmapShapes } from './heatmap.js';
 
 // ============ STATE ============
 let chess = new Chess();
@@ -447,7 +448,7 @@ function renderThreats(threats) {
 }
 
 function highlightThreats(threats) {
-  const shapes = [];
+  const threatShapes = [];
 
   for (const t of threats) {
     if (!t.squares || t.squares.length === 0) continue;
@@ -455,49 +456,47 @@ function highlightThreats(threats) {
     if (t.type === 'warning') {
       // Opponent threats: circle on our threatened piece, arrows from attackers
       const targetSquare = t.squares[0];
-      // Red circle on the threatened piece
-      shapes.push({
+      threatShapes.push({
         orig: targetSquare,
         brush: 'red',
       });
-      // Yellow arrows from each attacker to the threatened piece
       for (let i = 1; i < t.squares.length; i++) {
-        shapes.push({
+        threatShapes.push({
           orig: t.squares[i],
           dest: targetSquare,
           brush: 'yellow',
         });
       }
     } else if (t.type === 'opportunity' && t.move) {
-      // Our opportunities: green arrow showing the move
-      shapes.push({
+      threatShapes.push({
         orig: t.move.from,
         dest: t.move.to,
         brush: 'green',
       });
     } else if (t.type === 'danger') {
-      // In check: red highlight on king
-      // Find our king square
       const fen = chess.fen().split(' ')[0];
       const isWhite = chess.turn() === 'w';
       const kingChar = isWhite ? 'K' : 'k';
-      // Parse FEN to find king position
       let rank = 8, file = 0;
       for (const c of fen) {
         if (c === '/') { rank--; file = 0; continue; }
         if (c >= '1' && c <= '8') { file += parseInt(c); continue; }
         if (c === kingChar) {
           const sq = String.fromCharCode(97 + file) + rank;
-          shapes.push({ orig: sq, brush: 'red' });
+          threatShapes.push({ orig: sq, brush: 'red' });
         }
         file++;
       }
     }
   }
 
+  // Merge threat shapes with emotional heatmap shapes
+  const pColor = playerColor === 'white' ? 'w' : 'b';
+  const allShapes = generateHeatmapShapes(chess, pColor, threatShapes);
+
   ground.set({
     drawable: {
-      autoShapes: shapes,
+      autoShapes: allShapes,
     },
   });
 }
@@ -600,6 +599,7 @@ function newGame() {
     analyzePosition();
   } else {
     updateStatus('Choose a strategy!');
+    showStrategiesWithoutEngine();
   }
 }
 
