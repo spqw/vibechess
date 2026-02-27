@@ -1,0 +1,17 @@
+{
+  "name": "vibechess",
+  "version": "0.1.0",
+  "description": "Strategy-first chess - pick plans, not moves",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "chess.js": "1.4.0",
+    "chessground": "9.2.1",
+    "stockfish": "18.0.5",
+    "vite": "7.3.1"
+  }
+}

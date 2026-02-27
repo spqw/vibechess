@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeChess - Strategy-First Chess</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <h1>VibeChess</h1>
+      <span class="tagline">Pick strategies, not moves</span>
+      <button id="new-game-btn">New Game</button>
+    </header>
+
+    <div id="main">
+      <div id="board-column">
+        <div id="board-container">
+          <div id="board"></div>
+        </div>
+        <div id="status-bar">
+          <span id="turn-indicator">White to move</span>
+          <span id="eval-display">Eval: 0.0</span>
+          <span id="move-count">Move 1</span>
+        </div>
+      </div>
+
+      <div id="panel">
+        <div id="threats-section" class="panel-section">
+          <h2>Threats &amp; Opportunities</h2>
+          <div id="threats-list" class="card-list">
+            <div class="placeholder">Analyzing position...</div>
+          </div>
+        </div>
+
+        <div id="strategies-section" class="panel-section">
+          <h2>Strategic Plans</h2>
+          <div id="strategies-list" class="card-list">
+            <div class="placeholder">Thinking...</div>
+          </div>
+        </div>
+
+        <div id="history-section" class="panel-section">
+          <h2>Move History</h2>
+          <div id="move-history"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
